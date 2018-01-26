@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Streaming Test</title>
+<style>
+body {
+	background-color: black;
+	margin: 0;
+	padding: 0;
+}
+video {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+}
+</style>
+</head>
+<body>
+<video id="video"></video>
+<script type="text/javascript">
+(function () {
+	var video = document.getElementById('video');
+	function hop(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+	function extend(a, b) {
+		b = b || {};
+		for (var k in b)
+			if (b[k] !== undefined && hop(b, k))
+				a[k] = b[k];
+		return a;
+	}
+	function parseWithRegExp(text, reg, processValue) {
+		processValue = processValue || function (s) { return s; };
+		var obj = {};
+		if (!text) return obj;
+		var match;
+		while ((match = reg.exec(text)))
+			obj[match[1]] = processValue(match[2]);
+		return obj;
+	}
+	function parseQueryVariables(s) { return parseWithRegExp(s, /([^&=]*)=([^&]*)/g); }
+	function parse(s) { return JSON.parse(s); }
+	function stringify(o) { return JSON.stringify(o); }
+	function on(v) { return 'on' + v; }
+	var options = (function (s) {
+		var o = {};
+		for (var i = 0; i < s.length; i++) {
+			var params = (s || '').split('?');
+			if (params.length > 1)
+				extend(o, parseQueryVariables(params[1]));
+		}
+		return o;
+	}(location.href));
+	if (!options.type) options.type = 'playready';
+	function closeKey(e) {
+		var cancelKeyRequest = video.webkitCancelKeyRequest ? 'webkitCancelKeyRequest' : (video.cancelKeyRequest ? 'cancelKeyRequest' : null),
+			keySystem = e.keySystem,
+			keySession = e.target;
+		console.log('eme', 'close', 'license not received');
+		if (keySystem && video[cancelKeyRequest]) // EME v1
+			video[cancelKeyRequest](keySystem);
+		else if (keySession && keySession.close) // EME v2
+			keySession.close();
+	}
+	function updateKey(e, license) {
+		var addKey = video.webkitAddKey ? 'webkitAddKey' : (video.addKey ? 'addKey' : null),
+			keySystem = e.keySystem,
+			keySession = e.target;
+		console.log('eme', 'update license');
+		if (keySystem && video[addKey]) { // EME v1
+			console.log('eme', 'video.addKey', 'v1', keySystem, license.length, e.sessionId);
+			video[addKey](keySystem, license, null, e.sessionId);
+		} else if (keySession && keySession.update) { // EME v2
+			console.log('eme', 'keySession.update', 'v2');
+			keySession.update(license);
+		}
+	}
+	var needkey = on('webkitneedkey') in video ? 'webkitneedkey' : 'needkey',
+		keyerror = on('webkitkeyerror') in video ? 'webkitkeyerror' : 'keyerror',
+		keymessage = on('webkitkeymessage') in video ? 'webkitkeymessage' : 'keymessage',
+		mediaKeys = window.WebKitMediaKeys ? 'webkitKeys' : 'mediaKeys',
+		setMediaKeys = window.WebKitMediaKeys ? 'webkitSetMediaKeys' : 'setMediaKeys',
+		generateKeyRequest = video.webkitGenerateKeyRequest ? 'webkitGenerateKeyRequest' : 'generateKeyRequest',
+		MediaKeys = window.WebKitMediaKeys || window.MediaKeys;
+	var videos = {
+		playready: {
+			manifest: 'http://playready.directtaps.net/smoothstreaming/SSWSS720H264PR/SuperSpeedway_720.ism/Manifest',
+			keyMessage: function (e) {
+				console.log('playready', 'key message');
+				function handleLicenseAcquire() {
+					if (this.readyState === 4) {
+						console.log('playready', 'license acquired', this.status);
+						if (this.status === 200)
+							updateKey(e, new Uint8Array(this.response));
+						else
+							closeKey(e);
+					}
+				}
+				var xhr = new XMLHttpRequest();
+				xhr.open('POST', 'http://playready.directtaps.net/pr/svc/rightsmanager.asmx', true);
+				xhr.responseType = 'arraybuffer';
+				xhr.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
+				xhr.setRequestHeader('SOAPAction', '"http://schemas.microsoft.com/DRM/2007/03/protocols/AcquireLicense"');
+				xhr.onreadystatechange = handleLicenseAcquire;
+				xhr.send(e.message);
+			}
+		},
+		hls: {
+			manifest: 'http://devimages.apple.com/iphone/samples/bipbop/gear1/prog_index.m3u8'
+		}
+	};
+	function handleKeyMessage(e) {
+		var request = e.message,
+			keySystem = e.keySystem,
+			keySession = e.target,
+			conf = videos[options.type];
+		console.log('eme', 'key message received');
+		if (!request)
+			throw 'Could not find license message';
+		if (!keySession && !keySystem)
+			throw 'keySession or keySystem is required';
+		if (conf && conf.keyMessage)
+			conf.keyMessage(e);
+		else
+			console.log('eme', 'no key message handler found');
+	}
+	function handleKeyError(e) {
+		console.log('eme', 'key error', e);
+	}
+	function handleKeyNeeded(e) {
+		var video = e.target,
+			conf = videos[options.type],
+			keySystem = e.keySystem || conf.encryption,
+			keySession;
+		console.log('eme', 'key needed', keySystem, video.src);
+		// EME v2
+		if (keySystem && MediaKeys && !navigator.requestMediaKeySystemAccess) {
+			if (video[setMediaKeys])
+				video[setMediaKeys](new MediaKeys(conf.encryption));
+			if (video[mediaKeys] && video[mediaKeys].createSession)
+				keySession = video[mediaKeys].createSession(e.contentType, e.initData);
+			if (keySession) {
+				console.log('eme', 'v2');
+				keySession.addEventListener(on('webkitkeyerror') in keySession ? 'webkitkeyerror' : 'keyerror', handleKeyError, false);
+				keySession.addEventListener(on('webkitkeymessage') in keySession ? 'webkitkeymessage' : 'keymessage', handleKeyMessage, false);
+				return;
+			}
+		}
+		// EME v1
+		if (keySystem && video[generateKeyRequest]) {
+			console.log('eme', 'v1');
+			if (conf.customData)
+				return video[generateKeyRequest](keySystem, e.initData, conf.customData());
+			return video[generateKeyRequest](keySystem, e.initData);
+		}
+		console.log('eme', 'version not supported');
+	}
+	function error(e) {
+		var err = video.error;
+		console.log('video error:'+err.code);
+		console.log('video error:'+err.message);
+		
+		console.log('video', 'error', video.src, video.paused);
+		try { video.load(); } catch(err) {}
+		video.play();
+	}
+	if (on(keyerror) in video)
+		video.addEventListener(keyerror, handleKeyError, false);
+	if (on(keymessage) in video)
+		video.addEventListener(keymessage, handleKeyMessage, false);
+	if (on(needkey) in video)
+		video.addEventListener(needkey, handleKeyNeeded, false);
+	else
+		console.log('eme', 'no needkey found');
+	video.addEventListener('error', error, false);
+	window.addEventListener('unload', function () {
+		if (on(keyerror) in video)
+			video.removeEventListener(keyerror, handleKeyError, false);
+		if (on(keymessage) in video)
+			video.removeEventListener(keymessage, handleKeyMessage, false);
+		if (on(needkey) in video)
+			video.removeEventListener(needkey, handleKeyNeeded, false);
+		video.removeEventListener('error', error, false);
+	}, false);
+	function playUrl(url) {
+		console.log('video', 'url', url);
+		video.src = url;
+		video.load();
+		video.play();
+	}
+	function resizeVideo(width, height) {
+		console.log('Resizing video to ', width, height);
+		var videoElement = document.getElementById('video');
+		videoElement.style.width 	= width + "px";
+		videoElement.style.height 	= height + "px";
+	}
+	window.addEventListener('keydown', function (e) {
+		switch (e.keyCode) {
+			case 48: // 0
+				var width = window.innerWidth
+				|| document.documentElement.clientWidth
+				|| document.body.clientWidth;
+				var height = window.innerHeight
+				|| document.documentElement.clientHeight
+				|| document.body.clientHeight;
+				resizeVideo(width, height);
+				break;
+			case 49: // 1
+				resizeVideo(320, 240);
+				break;
+			case 50: // 2
+				resizeVideo(640, 480);
+				break;
+			case 51: // 3
+				resizeVideo(1280, 720);
+				break;
+			case 52: // 4
+				resizeVideo(1920, 1080);
+				break;
+		}
+		var type = options.type,
+			obj = videos[type],
+			config = obj.config,
+			channels = config && Object.keys(config);
+		if (!config) return;
+		if (!obj.channel) obj.channel = 0;
+		switch (e.keyCode) {
+			case 38: // Up
+				obj.channel++;
+				if (obj.channel === channels.length) obj.channel = 0;
+				playUrl(channels[obj.channel]);
+				break;
+			case 40: // Down
+				obj.channel--;
+				if (obj.channel === -1) obj.channel = channels.length - 1;
+				playUrl(channels[obj.channel]);
+				break;
+		}
+	}, false);
+	playUrl(videos[options.type] && videos[options.type].manifest);
+}());
+</script>
+</body>
+</html>
