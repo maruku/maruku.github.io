@@ -2,15 +2,15 @@
 <head>
 	<meta charset="UTF-8" />
 	<title>Video Player</title>
-	<link rel="stylesheet" type="text/css" href="test.css">
+  <link rel="stylesheet" type="text/css" href="test.css">
 	<script src="util.js" type="text/javascript" charset="utf-8"></script>
 </head>
 <body>
-<p id="result"></p>
 <video id="video" autoplay>
 	<source src="Tarzan.mp4"  type="video/mp4"  width="100%">
 	<p>This browser does not support HTML5 video.</p>
 </video>
+<p id="result"></p>
 </body>
 
 <script>
@@ -20,6 +20,8 @@ var playbackRate=1;
 var maxTimeDiff = 0;
 var baseTimeDiff = 0;
 var times = 0;
+
+result.innerHTML = "page loaded...";
 
 video.addEventListener('canplay', function() {
 	console.log("canplay");
@@ -35,8 +37,8 @@ video.addEventListener('canplay', function() {
         }
         if (times > 500 || video.currentTime > 10) {
           //util.Round(maxTimeDiff, 2);
-          console.log("maxTimeDiff:"+maxTimeDiff);
-          result.innerHTML = "["+times+"] maxTimeDiff:"+maxTimeDiff;
+          //console.log("maxTimeDiff:"+maxTimeDiff);
+          result.innerHTML += "["+times+"] video.currentTime:"+video.currentTime+" maxTimeDiff:"+maxTimeDiff+"<br>";
           //runner.checkLE(maxTimeDiff, 0.25, 'maxTimeDiff');
           //runner.succeed();
         }
