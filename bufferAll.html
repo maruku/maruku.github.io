@@ -21,15 +21,16 @@
       // ./mp4info frag_bunny.mp4 | grep Codec
       var mimeCodec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
 
-      result.innerHTML = "page loaded...";
+      result.innerHTML = "<br>page loaded...<br>";
 
+      
       if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
         var mediaSource = new MediaSource;
         //console.log(mediaSource.readyState); // closed
         video.src = URL.createObjectURL(mediaSource);
         mediaSource.addEventListener('sourceopen', sourceOpen);
       } else {
-        console.error('Unsupported MIME type or codec: ', mimeCodec);
+        result.innerHTML = "<br>Unsupported MIME type or codec: "+mimeCodec;
       }
 
       function sourceOpen (_) {
@@ -47,7 +48,8 @@
       };
 
       function fetchAB (url, cb) {
-        console.log(url);
+        //console.log(url);
+        result.innerHTML += "<br>Fetch:"+url; 
         var xhr = new XMLHttpRequest;
         xhr.open('get', url);
         xhr.responseType = 'arraybuffer';
