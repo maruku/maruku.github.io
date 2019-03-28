@@ -28,21 +28,21 @@ video.addEventListener('canplay', function() {
 	
 	video.addEventListener('timeupdate', function() {
 		if (times === 0) {
-          baseTimeDiff = util.ElapsedTimeInS() - video.currentTime;
-        } else {
-          var timeDiff = util.ElapsedTimeInS() - video.currentTime;
-          maxTimeDiff = Math.max(
-              Math.abs(timeDiff - baseTimeDiff), maxTimeDiff);
-        }
-        if (times > 500 || video.currentTime > 10) {
-          //util.Round(maxTimeDiff, 2);
-          //console.log("maxTimeDiff:"+maxTimeDiff);
-          result.innerHTML += "["+times+"] video.currentTime:"+video.currentTime+" maxTimeDiff:"+maxTimeDiff+"<br>";
-          //runner.checkLE(maxTimeDiff, 0.25, 'maxTimeDiff');
-          //runner.succeed();
-        }
-        ++times;
-		});
+      baseTimeDiff = util.ElapsedTimeInS() - video.currentTime;
+    } else {
+      var timeDiff = util.ElapsedTimeInS() - video.currentTime;
+      maxTimeDiff = Math.max(
+          Math.abs(timeDiff - baseTimeDiff), maxTimeDiff);
+    }
+    if (times > 500 || video.currentTime > 10) {
+      //util.Round(maxTimeDiff, 2);
+      //console.log("maxTimeDiff:"+maxTimeDiff);
+      result.innerHTML += "["+times+"] video.currentTime:"+video.currentTime+" maxTimeDiff:"+maxTimeDiff+"<br>";
+      //runner.checkLE(maxTimeDiff, 0.25, 'maxTimeDiff');
+      //runner.succeed();
+    }
+    ++times;
 	});
+});
 </script>
 </html>

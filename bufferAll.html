@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <script src="util.js" type="text/javascript" charset="utf-8"></script>
+  </head>
+  <body>
+    <video controls></video>
+    <div id="result">Hello....</div>
+    <script>
+      var video = document.querySelector('video');
+      var result = document.getElementById('result');
+
+      var maxTimeDiff = 0;
+      var baseTimeDiff = 0;
+      var times = 0;
+
+
+      var assetURL = 'frag_bunny.mp4';
+      // Need to be specific for Blink regarding codecs
+      // ./mp4info frag_bunny.mp4 | grep Codec
+      var mimeCodec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+
+      result.innerHTML = "page loaded...";
+
+      if ('MediaSource' in window && MediaSource.isTypeSupported(mimeCodec)) {
+        var mediaSource = new MediaSource;
+        //console.log(mediaSource.readyState); // closed
+        video.src = URL.createObjectURL(mediaSource);
+        mediaSource.addEventListener('sourceopen', sourceOpen);
+      } else {
+        console.error('Unsupported MIME type or codec: ', mimeCodec);
+      }
+
+      function sourceOpen (_) {
+        //console.log(this.readyState); // open
+        var mediaSource = this;
+        var sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+        fetchAB(assetURL, function (buf) {
+          sourceBuffer.addEventListener('updateend', function (_) {
+            mediaSource.endOfStream();
+            video.play();
+            //console.log(mediaSource.readyState); // ended
+          });
+          sourceBuffer.appendBuffer(buf);
+        });
+      };
+
+      function fetchAB (url, cb) {
+        console.log(url);
+        var xhr = new XMLHttpRequest;
+        xhr.open('get', url);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = function () {
+          cb(xhr.response);
+        };
+        xhr.send();
+      };
+
+      video.addEventListener('canplay', function() {
+        result.innerHTML = "canplay";
+        //video.play();
+        
+        video.addEventListener('timeupdate', function() {
+          if (times === 0) {
+            baseTimeDiff = util.ElapsedTimeInS() - video.currentTime;
+          } else {
+            var timeDiff = util.ElapsedTimeInS() - video.currentTime;
+            maxTimeDiff = Math.max(
+                Math.abs(timeDiff - baseTimeDiff), maxTimeDiff);
+          }
+          if (times > 500 || video.currentTime > 10) {
+            //util.Round(maxTimeDiff, 2);
+            //console.log("maxTimeDiff:"+maxTimeDiff);
+            result.innerHTML += "["+times+"] video.currentTime:"+video.currentTime+" maxTimeDiff:"+maxTimeDiff+"<br>";
+            //runner.checkLE(maxTimeDiff, 0.25, 'maxTimeDiff');
+            //runner.succeed();
+          }
+          ++times;
+        });
+      });
+
+    </script>
+  </body>
+</html>
+
