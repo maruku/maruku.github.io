@@ -1,0 +1,33 @@
+<html>
+<head>
+		<title>Video Player</title>
+</head>
+<body>
+<script src="js/dash.all.min.js"></script>
+ <div>
+	<video id="videoPlayer" controls width="100%" height="100%"></video>
+</div>
+
+</body>
+
+<script>
+function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+};
+
+(function(){
+	var paraurl = getUrlParameter("url");
+	console.log("URL:" + paraurl);
+	//var url = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd";
+	var url = "https://r-live-cache.akamaized.net/USL18/ANT/ANT.isml/.mpd";
+	var player = dashjs.MediaPlayer().create();
+	if(paraurl != "")
+		url = paraurl;
+		
+	player.initialize(document.querySelector("#videoPlayer"), url, true);
+})();
+</script>
+</html>
